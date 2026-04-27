@@ -1,6 +1,6 @@
-# X Show More Hotkey
+# X Keyboard Extras
 
-Chrome extension that augments x.com keyboard shortcuts with `h` for the visible tweet `Show more` control.
+Chrome extension that augments x.com keyboard shortcuts.
 
 ## Build
 
@@ -18,6 +18,9 @@ bun run build
 
 ## Use
 
-On `x.com`, press `h` to click the nearest visible tweet `Show more` link. The shortcut is ignored while typing in inputs, textareas, text boxes, and the post composer.
+On `x.com`, use the built-in `j`/`k` keyboard navigation to select a tweet, then use:
 
-If no visible `Show more` control is found, the key press is left alone so x.com can handle its own shortcuts.
+- `h` to click that selected tweet's `Show more` link.
+- `Shift+O` to open a referenced tweet inside the selected tweet.
+
+The shortcuts are ignored while typing in inputs, textareas, text boxes, and the post composer. If no keyboard-selected tweet or matching target is found, the key press is left alone so x.com can handle its own shortcuts.
