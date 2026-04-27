@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "X Show More Hotkey",
+  "description": "Adds an h keyboard shortcut to open the Show more control on x.com posts.",
+  "version": "0.1.0",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}
