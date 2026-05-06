@@ -3,7 +3,7 @@ import {
   type CaptureVisibleTweetRequest,
   type CaptureVisibleTweetResponse,
   type Rect,
-  type Viewport
+  type Viewport,
 } from "./messages";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -15,13 +15,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     .then((imageDataUrl) => {
       sendResponse({
         ok: true,
-        imageDataUrl
+        imageDataUrl,
       } satisfies CaptureVisibleTweetResponse);
     })
     .catch((error: unknown) => {
       sendResponse({
         ok: false,
-        error: getErrorMessage(error)
+        error: getErrorMessage(error),
       } satisfies CaptureVisibleTweetResponse);
     });
 
@@ -30,26 +30,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function captureVisibleTweet(
   request: CaptureVisibleTweetRequest,
-  sender: chrome.runtime.MessageSender
+  sender: chrome.runtime.MessageSender,
 ): Promise<string> {
   const screenshotDataUrl = await chrome.tabs.captureVisibleTab(
     sender.tab?.windowId,
     {
-      format: "png"
-    }
+      format: "png",
+    },
   );
 
-  return cropImageDataUrl(
-    screenshotDataUrl,
-    request.rect,
-    request.viewport
-  );
+  return cropImageDataUrl(screenshotDataUrl, request.rect, request.viewport);
 }
 
 async function cropImageDataUrl(
   imageDataUrl: string,
   rect: Rect,
-  viewport: Viewport
+  viewport: Viewport,
 ): Promise<string> {
   const sourceBlob = await dataUrlToBlob(imageDataUrl);
   const sourceImage = await createImageBitmap(sourceBlob);
@@ -59,7 +55,7 @@ async function cropImageDataUrl(
       rect,
       viewport,
       sourceImage.width,
-      sourceImage.height
+      sourceImage.height,
     );
     const canvas = new OffscreenCanvas(cropRect.width, cropRect.height);
     const context = canvas.getContext("2d");
@@ -77,7 +73,7 @@ async function cropImageDataUrl(
       0,
       0,
       cropRect.width,
-      cropRect.height
+      cropRect.height,
     );
 
     const cropBlob = await canvas.convertToBlob({ type: "image/png" });
@@ -91,19 +87,16 @@ function getPixelCropRect(
   rect: Rect,
   viewport: Viewport,
   imageWidth: number,
-  imageHeight: number
+  imageHeight: number,
 ): Rect {
   const scaleX = imageWidth / viewport.width;
   const scaleY = imageHeight / viewport.height;
   const x = Math.max(0, Math.floor(rect.x * scaleX));
   const y = Math.max(0, Math.floor(rect.y * scaleY));
-  const right = Math.min(
-    imageWidth,
-    Math.ceil((rect.x + rect.width) * scaleX)
-  );
+  const right = Math.min(imageWidth, Math.ceil((rect.x + rect.width) * scaleX));
   const bottom = Math.min(
     imageHeight,
-    Math.ceil((rect.y + rect.height) * scaleY)
+    Math.ceil((rect.y + rect.height) * scaleY),
   );
   const width = right - x;
   const height = bottom - y;
@@ -116,7 +109,7 @@ function getPixelCropRect(
     x,
     y,
     width,
-    height
+    height,
   };
 }
 
@@ -137,46 +130,53 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   let binary = "";
 
   for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(
-      ...bytes.subarray(index, index + chunkSize)
-    );
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
   }
 
   return btoa(binary);
 }
 
 function isCaptureVisibleTweetRequest(
-  message: unknown
+  message: unknown,
 ): message is CaptureVisibleTweetRequest {
   return (
-    isRecord(message) &&
-    message["type"] === CAPTURE_VISIBLE_TWEET_MESSAGE &&
-    isRect(message["rect"]) &&
-    isViewport(message["viewport"])
+    isObject(message) &&
+    "type" in message &&
+    "rect" in message &&
+    "viewport" in message &&
+    message.type === CAPTURE_VISIBLE_TWEET_MESSAGE &&
+    isRect(message.rect) &&
+    isViewport(message.viewport)
   );
 }
 
 function isRect(value: unknown): value is Rect {
   return (
-    isRecord(value) &&
-    isFiniteNumber(value["x"]) &&
-    isFiniteNumber(value["y"]) &&
-    isFiniteNumber(value["width"]) &&
-    isFiniteNumber(value["height"])
+    isObject(value) &&
+    "x" in value &&
+    "y" in value &&
+    "width" in value &&
+    "height" in value &&
+    isFiniteNumber(value.x) &&
+    isFiniteNumber(value.y) &&
+    isFiniteNumber(value.width) &&
+    isFiniteNumber(value.height)
   );
 }
 
 function isViewport(value: unknown): value is Viewport {
   return (
-    isRecord(value) &&
-    isFiniteNumber(value["width"]) &&
-    isFiniteNumber(value["height"]) &&
-    value["width"] > 0 &&
-    value["height"] > 0
+    isObject(value) &&
+    "width" in value &&
+    "height" in value &&
+    isFiniteNumber(value.width) &&
+    isFiniteNumber(value.height) &&
+    value.width > 0 &&
+    value.height > 0
   );
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null;
 }
 

@@ -2,7 +2,7 @@ import {
   CAPTURE_VISIBLE_TWEET_MESSAGE,
   type CaptureVisibleTweetRequest,
   type CaptureVisibleTweetResponse,
-  type Rect
+  type Rect,
 } from "./messages";
 
 const SHOW_MORE_KEY = "h";
@@ -14,7 +14,7 @@ const CLICKABLE_SELECTOR = [
   "button",
   '[role="button"]',
   "[tabindex]",
-  "[data-testid]"
+  "[data-testid]",
 ].join(",");
 
 const SHOW_MORE_RE = /^show more$/i;
@@ -52,7 +52,9 @@ function handleKeydown(event: KeyboardEvent): void {
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    void copyVisibleTweetScreenshot(visibleTweetRect).catch(reportShortcutError);
+    void copyVisibleTweetScreenshot(visibleTweetRect).catch(
+      reportShortcutError,
+    );
     return;
   }
 
@@ -79,29 +81,24 @@ function isSupportedShortcut(event: KeyboardEvent): boolean {
 }
 
 function isShowMoreShortcut(event: KeyboardEvent): boolean {
-  return (
-    !event.shiftKey &&
-    event.key.toLowerCase() === SHOW_MORE_KEY
-  );
+  return !event.shiftKey && event.key.toLowerCase() === SHOW_MORE_KEY;
 }
 
 function isOpenReferencedTweetShortcut(event: KeyboardEvent): boolean {
   return (
-    event.shiftKey &&
-    event.key.toLowerCase() === OPEN_REFERENCED_TWEET_KEY
+    event.shiftKey && event.key.toLowerCase() === OPEN_REFERENCED_TWEET_KEY
   );
 }
 
 function isScreenshotTweetShortcut(event: KeyboardEvent): boolean {
-  return (
-    event.shiftKey &&
-    event.key.toLowerCase() === SCREENSHOT_TWEET_KEY
-  );
+  return event.shiftKey && event.key.toLowerCase() === SCREENSHOT_TWEET_KEY;
 }
 
 async function copyVisibleTweetScreenshot(rect: Rect): Promise<void> {
   if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
-    throw new Error("Image clipboard writes are not supported in this browser.");
+    throw new Error(
+      "Image clipboard writes are not supported in this browser.",
+    );
   }
 
   const request: CaptureVisibleTweetRequest = {
@@ -109,12 +106,12 @@ async function copyVisibleTweetScreenshot(rect: Rect): Promise<void> {
     rect,
     viewport: {
       width: window.innerWidth,
-      height: window.innerHeight
-    }
+      height: window.innerHeight,
+    },
   };
-  const response = (await chrome.runtime.sendMessage(
-    request
-  )) as CaptureVisibleTweetResponse | undefined;
+  const response = (await chrome.runtime.sendMessage(request)) as
+    | CaptureVisibleTweetResponse
+    | undefined;
 
   if (!response) {
     throw new Error("No screenshot response received from the extension.");
@@ -127,8 +124,8 @@ async function copyVisibleTweetScreenshot(rect: Rect): Promise<void> {
   const imageBlob = await dataUrlToBlob(response.imageDataUrl);
   await navigator.clipboard.write([
     new ClipboardItem({
-      [imageBlob.type || "image/png"]: imageBlob
-    })
+      [imageBlob.type || "image/png"]: imageBlob,
+    }),
   ]);
 }
 
@@ -149,7 +146,7 @@ function getVisibleTweetRect(tweet: Element): Rect | null {
     x: left,
     y: top,
     width,
-    height
+    height,
   };
 }
 
@@ -182,8 +179,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
       "select",
       '[contenteditable=""]',
       '[contenteditable="true"]',
-      '[role="textbox"]'
-    ].join(",")
+      '[role="textbox"]',
+    ].join(","),
   );
 
   return Boolean(editable);
@@ -211,7 +208,9 @@ function findKeyboardSelectedTweet(): Element | null {
     }
   }
 
-  const focusWithinTweet = document.querySelector(`${TWEET_SELECTOR}:focus-within`);
+  const focusWithinTweet = document.querySelector(
+    `${TWEET_SELECTOR}:focus-within`,
+  );
   return focusWithinTweet && isUsableTweet(focusWithinTweet)
     ? focusWithinTweet
     : null;
@@ -222,7 +221,9 @@ function isUsableTweet(tweet: Element): boolean {
 }
 
 function findActiveDescendantTweet(activeElement: Element): Element | null {
-  const activeDescendantId = activeElement.getAttribute("aria-activedescendant");
+  const activeDescendantId = activeElement.getAttribute(
+    "aria-activedescendant",
+  );
   if (!activeDescendantId) {
     return null;
   }
@@ -248,9 +249,9 @@ function isFocusedSingleTweetWrapper(element: Element): boolean {
     return false;
   }
 
-  const visibleTweets = Array.from(element.querySelectorAll(TWEET_SELECTOR)).filter(
-    isUsableTweet
-  );
+  const visibleTweets = Array.from(
+    element.querySelectorAll(TWEET_SELECTOR),
+  ).filter(isUsableTweet);
   return visibleTweets.length === 1;
 }
 
@@ -295,13 +296,15 @@ function findReferencedTweetUrl(tweet: Element): string | null {
     return null;
   }
 
-  const statusTargets = Array.from(tweet.querySelectorAll<HTMLAnchorElement>("a[href]"))
+  const statusTargets = Array.from(
+    tweet.querySelectorAll<HTMLAnchorElement>("a[href]"),
+  )
     .filter(isVisible)
     .map(getStatusTarget)
     .filter(isStatusTarget);
 
   const referencedStatusTarget = uniqueStatusTargets(statusTargets).find(
-    (statusTarget) => statusTarget.statusId !== ownStatusId
+    (statusTarget) => statusTarget.statusId !== ownStatusId,
   );
 
   return referencedStatusTarget?.url ?? null;
@@ -319,7 +322,7 @@ function findOwnStatusId(tweet: Element): string | null {
   }
 
   const firstStatusTarget = Array.from(
-    tweet.querySelectorAll<HTMLAnchorElement>("a[href]")
+    tweet.querySelectorAll<HTMLAnchorElement>("a[href]"),
   )
     .filter(isVisible)
     .map(getStatusTarget)
@@ -350,12 +353,12 @@ function getStatusTarget(link: HTMLAnchorElement): StatusTarget | null {
 
   return {
     statusId,
-    url: new URL(normalizedPath, window.location.origin).toString()
+    url: new URL(normalizedPath, window.location.origin).toString(),
   };
 }
 
 function isStatusTarget(
-  statusTarget: StatusTarget | null
+  statusTarget: StatusTarget | null,
 ): statusTarget is StatusTarget {
   return statusTarget !== null;
 }
@@ -392,7 +395,7 @@ function isShowMoreText(element: HTMLElement): boolean {
 
 function findClickableAncestor(
   element: HTMLElement,
-  boundary: Element
+  boundary: Element,
 ): HTMLElement | null {
   let current: HTMLElement | null = element;
 
@@ -411,7 +414,7 @@ function getAccessibleLabel(element: HTMLElement): string {
   return normalizeText(
     element.getAttribute("aria-label") ||
       element.getAttribute("title") ||
-      element.textContent
+      element.textContent,
   );
 }
 

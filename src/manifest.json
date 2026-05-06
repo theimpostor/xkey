@@ -3,24 +3,15 @@
   "name": "X Keyboard Extras",
   "description": "Adds keyboard shortcuts for Show more, referenced tweets, and screenshots on x.com posts.",
   "version": "0.1.0",
-  "permissions": [
-    "clipboardWrite"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "permissions": ["clipboardWrite"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://x.com/*",
-        "https://twitter.com/*"
-      ],
-      "js": [
-        "content.js"
-      ],
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"],
       "run_at": "document_start"
     }
   ]

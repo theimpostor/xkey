@@ -13,7 +13,7 @@ const result = await Bun.build({
   outdir: distUrl.pathname,
   target: "browser",
   format: "iife",
-  sourcemap: "none"
+  sourcemap: "none",
 });
 
 if (!result.success) {
@@ -27,5 +27,5 @@ if (!result.success) {
 const manifest = await Bun.file(new URL("src/manifest.json", rootUrl)).json();
 await Bun.write(
   new URL("manifest.json", distUrl),
-  `${JSON.stringify(manifest, null, 2)}\n`
+  `${JSON.stringify(manifest, null, 2)}\n`,
 );

@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "build": "bun run typecheck && bun run build.ts"
+    "build": "bun run check && bun run typecheck && bun run build.ts",
+    "check": "biome check --error-on-warnings",
+    "checkfix": "biome check --write",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
     "@types/bun": "latest",
     "chrome-types": "^0.1.425",
     "typescript": "^6.0.3"
