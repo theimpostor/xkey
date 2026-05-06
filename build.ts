@@ -3,12 +3,13 @@ import { mkdir, rm } from "node:fs/promises";
 const rootUrl = new URL("./", import.meta.url);
 const distUrl = new URL("dist/", rootUrl);
 const contentEntry = new URL("src/content.ts", rootUrl).pathname;
+const backgroundEntry = new URL("src/background.ts", rootUrl).pathname;
 
 await rm(distUrl, { recursive: true, force: true });
 await mkdir(distUrl, { recursive: true });
 
 const result = await Bun.build({
-  entrypoints: [contentEntry],
+  entrypoints: [contentEntry, backgroundEntry],
   outdir: distUrl.pathname,
   target: "browser",
   format: "iife",

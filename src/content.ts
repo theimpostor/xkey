@@ -1,5 +1,13 @@
+import {
+  CAPTURE_VISIBLE_TWEET_MESSAGE,
+  type CaptureVisibleTweetRequest,
+  type CaptureVisibleTweetResponse,
+  type Rect
+} from "./messages";
+
 const SHOW_MORE_KEY = "h";
 const OPEN_REFERENCED_TWEET_KEY = "o";
+const SCREENSHOT_TWEET_KEY = "s";
 const TWEET_SELECTOR = 'article[data-testid="tweet"]';
 const CLICKABLE_SELECTOR = [
   "a",
@@ -36,6 +44,18 @@ function handleKeydown(event: KeyboardEvent): void {
     return;
   }
 
+  if (isScreenshotTweetShortcut(event)) {
+    const visibleTweetRect = getVisibleTweetRect(selectedTweet);
+    if (!visibleTweetRect) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void copyVisibleTweetScreenshot(visibleTweetRect).catch(reportShortcutError);
+    return;
+  }
+
   const referencedTweetUrl = findReferencedTweetUrl(selectedTweet);
   if (!referencedTweetUrl) {
     return;
@@ -51,7 +71,11 @@ function isSupportedShortcut(event: KeyboardEvent): boolean {
     return false;
   }
 
-  return isShowMoreShortcut(event) || isOpenReferencedTweetShortcut(event);
+  return (
+    isShowMoreShortcut(event) ||
+    isOpenReferencedTweetShortcut(event) ||
+    isScreenshotTweetShortcut(event)
+  );
 }
 
 function isShowMoreShortcut(event: KeyboardEvent): boolean {
@@ -66,6 +90,84 @@ function isOpenReferencedTweetShortcut(event: KeyboardEvent): boolean {
     event.shiftKey &&
     event.key.toLowerCase() === OPEN_REFERENCED_TWEET_KEY
   );
+}
+
+function isScreenshotTweetShortcut(event: KeyboardEvent): boolean {
+  return (
+    event.shiftKey &&
+    event.key.toLowerCase() === SCREENSHOT_TWEET_KEY
+  );
+}
+
+async function copyVisibleTweetScreenshot(rect: Rect): Promise<void> {
+  if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+    throw new Error("Image clipboard writes are not supported in this browser.");
+  }
+
+  const request: CaptureVisibleTweetRequest = {
+    type: CAPTURE_VISIBLE_TWEET_MESSAGE,
+    rect,
+    viewport: {
+      width: window.innerWidth,
+      height: window.innerHeight
+    }
+  };
+  const response = (await chrome.runtime.sendMessage(
+    request
+  )) as CaptureVisibleTweetResponse | undefined;
+
+  if (!response) {
+    throw new Error("No screenshot response received from the extension.");
+  }
+
+  if (!response.ok) {
+    throw new Error(response.error);
+  }
+
+  const imageBlob = await dataUrlToBlob(response.imageDataUrl);
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      [imageBlob.type || "image/png"]: imageBlob
+    })
+  ]);
+}
+
+function getVisibleTweetRect(tweet: Element): Rect | null {
+  const rect = tweet.getBoundingClientRect();
+  const left = clamp(rect.left, 0, window.innerWidth);
+  const top = clamp(rect.top, 0, window.innerHeight);
+  const right = clamp(rect.right, 0, window.innerWidth);
+  const bottom = clamp(rect.bottom, 0, window.innerHeight);
+  const width = right - left;
+  const height = bottom - top;
+
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return {
+    x: left,
+    y: top,
+    width,
+    height
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const response = await fetch(dataUrl);
+  return response.blob();
+}
+
+function reportShortcutError(error: unknown): void {
+  console.warn("[X Keyboard Extras]", getErrorMessage(error));
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

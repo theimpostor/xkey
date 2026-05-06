@@ -1,8 +1,17 @@
 {
   "manifest_version": 3,
   "name": "X Keyboard Extras",
-  "description": "Adds keyboard shortcuts for Show more and referenced tweets on x.com posts.",
+  "description": "Adds keyboard shortcuts for Show more, referenced tweets, and screenshots on x.com posts.",
   "version": "0.1.0",
+  "permissions": [
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": [
