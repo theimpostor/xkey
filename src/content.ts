@@ -10,7 +10,7 @@ const CLICKABLE_SELECTOR = [
 ].join(",");
 
 const SHOW_MORE_RE = /^show more$/i;
-const STATUS_PATH_RE = /^\/[^/]+\/status\/(\d+)/;
+const STATUS_PATH_RE = /^\/([^/]+)\/status\/(\d+)(\/.*)?$/;
 
 document.addEventListener("keydown", handleKeydown, true);
 
@@ -24,17 +24,26 @@ function handleKeydown(event: KeyboardEvent): void {
     return;
   }
 
-  const control = isShowMoreShortcut(event)
-    ? findShowMoreControl(selectedTweet)
-    : findReferencedTweetLink(selectedTweet);
+  if (isShowMoreShortcut(event)) {
+    const control = findShowMoreControl(selectedTweet);
+    if (!control) {
+      return;
+    }
 
-  if (!control) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    control.click();
+    return;
+  }
+
+  const referencedTweetUrl = findReferencedTweetUrl(selectedTweet);
+  if (!referencedTweetUrl) {
     return;
   }
 
   event.preventDefault();
   event.stopImmediatePropagation();
-  control.click();
+  window.location.assign(referencedTweetUrl);
 }
 
 function isSupportedShortcut(event: KeyboardEvent): boolean {
@@ -178,68 +187,86 @@ function findShowMoreControl(tweet: Element): HTMLElement | null {
   return null;
 }
 
-function findReferencedTweetLink(tweet: Element): HTMLElement | null {
+function findReferencedTweetUrl(tweet: Element): string | null {
   const ownStatusId = findOwnStatusId(tweet);
   if (!ownStatusId) {
     return null;
   }
 
-  const statusLinks = Array.from(tweet.querySelectorAll<HTMLAnchorElement>("a[href]"))
+  const statusTargets = Array.from(tweet.querySelectorAll<HTMLAnchorElement>("a[href]"))
     .filter(isVisible)
-    .map(getStatusLink)
-    .filter(isStatusLink);
+    .map(getStatusTarget)
+    .filter(isStatusTarget);
 
-  const referencedStatusLink = uniqueStatusLinks(statusLinks).find(
-    (statusLink) => statusLink.statusId !== ownStatusId
+  const referencedStatusTarget = uniqueStatusTargets(statusTargets).find(
+    (statusTarget) => statusTarget.statusId !== ownStatusId
   );
 
-  return referencedStatusLink?.link ?? null;
+  return referencedStatusTarget?.url ?? null;
 }
 
 function findOwnStatusId(tweet: Element): string | null {
   const timestamp = tweet.querySelector("time");
   const timestampLink = timestamp?.closest<HTMLAnchorElement>("a[href]");
-  const timestampStatusLink = timestampLink ? getStatusLink(timestampLink) : null;
+  const timestampStatusTarget = timestampLink
+    ? getStatusTarget(timestampLink)
+    : null;
 
-  if (timestampStatusLink) {
-    return timestampStatusLink.statusId;
+  if (timestampStatusTarget) {
+    return timestampStatusTarget.statusId;
   }
 
-  const firstStatusLink = Array.from(
+  const firstStatusTarget = Array.from(
     tweet.querySelectorAll<HTMLAnchorElement>("a[href]")
   )
     .filter(isVisible)
-    .map(getStatusLink)
-    .find(isStatusLink);
+    .map(getStatusTarget)
+    .find(isStatusTarget);
 
-  return firstStatusLink?.statusId ?? null;
+  return firstStatusTarget?.statusId ?? null;
 }
 
-type StatusLink = {
-  link: HTMLAnchorElement;
+type StatusTarget = {
   statusId: string;
+  url: string;
 };
 
-function getStatusLink(link: HTMLAnchorElement): StatusLink | null {
+function getStatusTarget(link: HTMLAnchorElement): StatusTarget | null {
   const url = new URL(link.href, window.location.href);
   const match = STATUS_PATH_RE.exec(url.pathname);
+  const screenName = match?.[1];
+  const statusId = match?.[2];
 
-  return match?.[1] ? { link, statusId: match[1] } : null;
+  if (!screenName || !statusId) {
+    return null;
+  }
+
+  const normalizedPath =
+    screenName === "i"
+      ? `/i/status/${statusId}`
+      : `/${screenName}/status/${statusId}`;
+
+  return {
+    statusId,
+    url: new URL(normalizedPath, window.location.origin).toString()
+  };
 }
 
-function isStatusLink(statusLink: StatusLink | null): statusLink is StatusLink {
-  return statusLink !== null;
+function isStatusTarget(
+  statusTarget: StatusTarget | null
+): statusTarget is StatusTarget {
+  return statusTarget !== null;
 }
 
-function uniqueStatusLinks(statusLinks: StatusLink[]): StatusLink[] {
+function uniqueStatusTargets(statusTargets: StatusTarget[]): StatusTarget[] {
   const seenStatusIds = new Set<string>();
 
-  return statusLinks.filter((statusLink) => {
-    if (seenStatusIds.has(statusLink.statusId)) {
+  return statusTargets.filter((statusTarget) => {
+    if (seenStatusIds.has(statusTarget.statusId)) {
       return false;
     }
 
-    seenStatusIds.add(statusLink.statusId);
+    seenStatusIds.add(statusTarget.statusId);
     return true;
   });
 }
