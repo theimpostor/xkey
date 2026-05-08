@@ -13,6 +13,7 @@ const CLICKABLE_SELECTOR = [
   "a",
   "button",
   '[role="button"]',
+  '[role="link"]',
   "[tabindex]",
   "[data-testid]",
 ].join(",");
@@ -59,13 +60,23 @@ function handleKeydown(event: KeyboardEvent): void {
   }
 
   const referencedTweetUrl = findReferencedTweetUrl(selectedTweet);
-  if (!referencedTweetUrl) {
+  const referencedTweetCard = referencedTweetUrl
+    ? null
+    : findReferencedTweetCard(selectedTweet);
+
+  if (!referencedTweetUrl && !referencedTweetCard) {
     return;
   }
 
   event.preventDefault();
   event.stopImmediatePropagation();
-  window.location.assign(referencedTweetUrl);
+
+  if (referencedTweetUrl) {
+    window.location.assign(referencedTweetUrl);
+    return;
+  }
+
+  referencedTweetCard?.click();
 }
 
 function isSupportedShortcut(event: KeyboardEvent): boolean {
@@ -86,12 +97,16 @@ function isShowMoreShortcut(event: KeyboardEvent): boolean {
 
 function isOpenReferencedTweetShortcut(event: KeyboardEvent): boolean {
   return (
-    event.shiftKey && event.key.toLowerCase() === OPEN_REFERENCED_TWEET_KEY
+    event.key === OPEN_REFERENCED_TWEET_KEY.toUpperCase() ||
+    (event.shiftKey && event.key.toLowerCase() === OPEN_REFERENCED_TWEET_KEY)
   );
 }
 
 function isScreenshotTweetShortcut(event: KeyboardEvent): boolean {
-  return event.shiftKey && event.key.toLowerCase() === SCREENSHOT_TWEET_KEY;
+  return (
+    event.key === SCREENSHOT_TWEET_KEY.toUpperCase() ||
+    (event.shiftKey && event.key.toLowerCase() === SCREENSHOT_TWEET_KEY)
+  );
 }
 
 async function copyVisibleTweetScreenshot(rect: Rect): Promise<void> {
@@ -130,24 +145,7 @@ async function copyVisibleTweetScreenshot(rect: Rect): Promise<void> {
 }
 
 function getVisibleTweetRect(tweet: Element): Rect | null {
-  const rect = tweet.getBoundingClientRect();
-  const left = clamp(rect.left, 0, window.innerWidth);
-  const top = clamp(rect.top, 0, window.innerHeight);
-  const right = clamp(rect.right, 0, window.innerWidth);
-  const bottom = clamp(rect.bottom, 0, window.innerHeight);
-  const width = right - left;
-  const height = bottom - top;
-
-  if (width <= 0 || height <= 0) {
-    return null;
-  }
-
-  return {
-    x: left,
-    y: top,
-    width,
-    height,
-  };
+  return getViewportClippedRect(tweet);
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -211,9 +209,11 @@ function findKeyboardSelectedTweet(): Element | null {
   const focusWithinTweet = document.querySelector(
     `${TWEET_SELECTOR}:focus-within`,
   );
-  return focusWithinTweet && isUsableTweet(focusWithinTweet)
-    ? focusWithinTweet
-    : null;
+  if (focusWithinTweet && isUsableTweet(focusWithinTweet)) {
+    return focusWithinTweet;
+  }
+
+  return findPrimaryVisibleTweet();
 }
 
 function isUsableTweet(tweet: Element): boolean {
@@ -267,6 +267,44 @@ function isInViewport(element: Element): boolean {
   return rect.bottom > 0 && rect.top < window.innerHeight;
 }
 
+function findPrimaryVisibleTweet(): Element | null {
+  const visibleTweets = Array.from(document.querySelectorAll(TWEET_SELECTOR))
+    .filter(isUsableTweet)
+    .sort((first, second) => {
+      const firstArea = getVisibleArea(first);
+      const secondArea = getVisibleArea(second);
+      return secondArea - firstArea;
+    });
+
+  return visibleTweets[0] ?? null;
+}
+
+function getVisibleArea(element: Element): number {
+  const rect = getViewportClippedRect(element);
+  return rect ? rect.width * rect.height : 0;
+}
+
+function getViewportClippedRect(element: Element): Rect | null {
+  const rect = element.getBoundingClientRect();
+  const left = clamp(rect.left, 0, window.innerWidth);
+  const top = clamp(rect.top, 0, window.innerHeight);
+  const right = clamp(rect.right, 0, window.innerWidth);
+  const bottom = clamp(rect.bottom, 0, window.innerHeight);
+  const width = right - left;
+  const height = bottom - top;
+
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return {
+    x: left,
+    y: top,
+    width,
+    height,
+  };
+}
+
 function findShowMoreControl(tweet: Element): HTMLElement | null {
   const candidates = Array.from(tweet.querySelectorAll(CLICKABLE_SELECTOR));
 
@@ -308,6 +346,75 @@ function findReferencedTweetUrl(tweet: Element): string | null {
   );
 
   return referencedStatusTarget?.url ?? null;
+}
+
+function findReferencedTweetCard(tweet: Element): HTMLElement | null {
+  const candidates = Array.from(
+    tweet.querySelectorAll<HTMLElement>("*"),
+  ).filter((candidate) => isReferencedTweetCardCandidate(candidate, tweet));
+
+  return smallestElement(candidates);
+}
+
+function isReferencedTweetCardCandidate(
+  element: HTMLElement,
+  tweet: Element,
+): boolean {
+  if (!isVisible(element) || element.closest(TWEET_SELECTOR) !== tweet) {
+    return false;
+  }
+
+  if (element === tweet || element.matches("a[href], button")) {
+    return false;
+  }
+
+  const label = getAccessibleLabel(element);
+  return (
+    (/\bquote\b/i.test(label) && hasReferencedTweetByline(label)) ||
+    isPointerCard(element, tweet)
+  );
+}
+
+function hasReferencedTweetByline(label: string): boolean {
+  return /@[a-z0-9_]{1,15}\b/i.test(label);
+}
+
+function isPointerCard(element: HTMLElement, tweet: Element): boolean {
+  const area = getElementArea(element);
+  if (area < 10_000 || window.getComputedStyle(element).cursor !== "pointer") {
+    return false;
+  }
+
+  const ownStatusId = findOwnStatusId(tweet);
+  if (!ownStatusId) {
+    return false;
+  }
+
+  const statusTargets = Array.from(
+    element.querySelectorAll<HTMLAnchorElement>("a[href]"),
+  )
+    .filter(isVisible)
+    .map(getStatusTarget)
+    .filter(isStatusTarget);
+
+  return statusTargets.every(
+    (statusTarget) => statusTarget.statusId === ownStatusId,
+  );
+}
+
+function smallestElement(elements: HTMLElement[]): HTMLElement | null {
+  return (
+    elements.slice().sort((first, second) => {
+      const firstArea = getElementArea(first);
+      const secondArea = getElementArea(second);
+      return firstArea - secondArea;
+    })[0] ?? null
+  );
+}
+
+function getElementArea(element: Element): number {
+  const rect = element.getBoundingClientRect();
+  return rect.width * rect.height;
 }
 
 function findOwnStatusId(tweet: Element): string | null {
