@@ -9,6 +9,23 @@ bun install
 bun run build
 ```
 
+## Pack CRX
+
+```sh
+bun run pack:crx
+```
+
+This is equivalent to `bun run build.ts --crx`.
+
+This rebuilds `dist` and writes `releases/x-show-more-hotkey-0.1.0.crx`.
+On the first run, Chrome generates a private key and the script saves it as
+`.crx-key.pem`. Keep that file if you want future CRX builds to keep the same
+extension ID.
+
+Use `CRX_KEY=/path/to/key.pem bun run pack:crx` to pack with an existing key,
+or `CHROME_BIN=/path/to/chrome bun run pack:crx` if Chrome is not installed in a
+standard macOS location.
+
 ## Install
 
 1. Open `chrome://extensions`.
