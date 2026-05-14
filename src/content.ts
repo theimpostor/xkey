@@ -9,6 +9,28 @@ const SHOW_MORE_KEY = "h";
 const OPEN_REFERENCED_TWEET_KEY = "o";
 const SCREENSHOT_TWEET_KEY = "s";
 const EXPLAIN_POST_WITH_GROK_KEY = "g";
+const EXTENSION_SHORTCUT_HELP_SHORTCUTS = [
+  {
+    id: "show-more",
+    label: "Expand 'Show more'",
+    keys: [SHOW_MORE_KEY],
+  },
+  {
+    id: "explain-post-with-grok",
+    label: "Explain with Grok",
+    keys: ["Shift", EXPLAIN_POST_WITH_GROK_KEY.toUpperCase()],
+  },
+  {
+    id: "open-referenced-post",
+    label: "Open subtweet",
+    keys: ["Shift", OPEN_REFERENCED_TWEET_KEY.toUpperCase()],
+  },
+  {
+    id: "copy-post-screenshot",
+    label: "Copy screenshot",
+    keys: ["Shift", SCREENSHOT_TWEET_KEY.toUpperCase()],
+  },
+] as const;
 const TWEET_SELECTOR = 'article[data-testid="tweet"]';
 const CLICKABLE_SELECTOR = [
   "a",
@@ -23,8 +45,298 @@ const SHOW_MORE_RE = /^show more$/i;
 const EXPLAIN_POST_WITH_GROK_RE = /^(explain this post|grok(?: actions)?)$/i;
 const GROK_TEST_ID_RE = /grok/i;
 const STATUS_PATH_RE = /^\/([^/]+)\/status\/(\d+)(\/.*)?$/;
+const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6, [role="heading"]';
+const SHORTCUT_TABLE_SELECTOR = 'table, [role="table"]';
+const SHORTCUT_ROW_SELECTOR = 'tr, [role="row"]';
+const SHORTCUT_CELL_SELECTOR =
+  'td, th, [role="cell"], [role="gridcell"], [role="columnheader"]';
+const KEYBOARD_SHORTCUT_HELP_TITLE = "Keyboard shortcuts";
+const EXTENSION_SHORTCUT_HELP_HOST_SECTION_TITLE = "Media";
+const EXTENSION_SHORTCUT_HELP_SECTION_TITLE = "xkey";
+const EXTENSION_SHORTCUT_HELP_MARKER = "data-x-keyboard-extras-shortcut";
+
+let keyboardShortcutHelpAugmentationFrame = 0;
 
 document.addEventListener("keydown", handleKeydown, true);
+startKeyboardShortcutHelpAugmenter();
+
+function startKeyboardShortcutHelpAugmenter(): void {
+  scheduleKeyboardShortcutHelpAugmentation();
+
+  const observer = new MutationObserver(
+    scheduleKeyboardShortcutHelpAugmentation,
+  );
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+function scheduleKeyboardShortcutHelpAugmentation(): void {
+  if (keyboardShortcutHelpAugmentationFrame !== 0) {
+    return;
+  }
+
+  keyboardShortcutHelpAugmentationFrame = window.requestAnimationFrame(() => {
+    keyboardShortcutHelpAugmentationFrame = 0;
+    augmentKeyboardShortcutHelp();
+  });
+}
+
+function augmentKeyboardShortcutHelp(): void {
+  const root = findKeyboardShortcutHelpRoot();
+  if (!root) {
+    return;
+  }
+
+  const hostSection = findKeyboardShortcutHelpSection(
+    root,
+    EXTENSION_SHORTCUT_HELP_HOST_SECTION_TITLE,
+  );
+
+  if (
+    !hostSection ||
+    hostSection.querySelector(`[${EXTENSION_SHORTCUT_HELP_MARKER}]`)
+  ) {
+    return;
+  }
+
+  appendExtensionShortcutHelpSection(hostSection);
+}
+
+function findKeyboardShortcutHelpRoot(): HTMLElement | null {
+  const titleHeadings = findVisibleHeadingsByText(
+    document.documentElement,
+    KEYBOARD_SHORTCUT_HELP_TITLE,
+  );
+
+  for (const titleHeading of titleHeadings) {
+    let current = titleHeading.parentElement;
+
+    while (current && current !== document.body) {
+      const hasNavigationSection = Boolean(
+        findKeyboardShortcutHelpSection(current, "Navigation"),
+      );
+      const hasActionsSection = Boolean(
+        findKeyboardShortcutHelpSection(current, "Actions"),
+      );
+
+      if (hasNavigationSection && hasActionsSection) {
+        return current;
+      }
+
+      current = current.parentElement;
+    }
+  }
+
+  return null;
+}
+
+function findKeyboardShortcutHelpSection(
+  root: ParentNode,
+  title: string,
+): HTMLElement | null {
+  const heading = findVisibleHeadingsByText(root, title)[0];
+  if (!heading) {
+    return null;
+  }
+
+  let current = heading.parentElement;
+
+  while (current && current !== document.body) {
+    if (findShortcutTable(current)) {
+      return current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
+function findVisibleHeadingsByText(
+  root: ParentNode,
+  text: string,
+): HTMLElement[] {
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(HEADING_SELECTOR),
+  ).filter(
+    (heading) =>
+      isVisible(heading) && normalizeText(heading.textContent) === text,
+  );
+}
+
+function findShortcutTable(root: ParentNode): HTMLElement | null {
+  return root.querySelector<HTMLElement>(SHORTCUT_TABLE_SELECTOR);
+}
+
+function appendExtensionShortcutHelpSection(hostSection: HTMLElement): void {
+  const templateHeading = findShortcutSectionHeading(hostSection);
+  const templateTable = findShortcutTable(hostSection);
+  const templateRow = templateTable
+    ? findShortcutRowTemplate(templateTable)
+    : null;
+
+  if (!templateHeading || !templateTable || !templateRow) {
+    return;
+  }
+
+  const heading = templateHeading.cloneNode(true) as HTMLElement;
+  heading.textContent = EXTENSION_SHORTCUT_HELP_SECTION_TITLE;
+  heading.setAttribute(EXTENSION_SHORTCUT_HELP_MARKER, "heading");
+  applyShortcutSectionHeadingStyle(templateHeading, heading);
+
+  const table = templateTable.cloneNode(true) as HTMLElement;
+  table.setAttribute(EXTENSION_SHORTCUT_HELP_MARKER, "table");
+
+  const insertionTarget = findShortcutTableInsertionTarget(table);
+  insertionTarget.replaceChildren();
+
+  for (const shortcut of EXTENSION_SHORTCUT_HELP_SHORTCUTS) {
+    insertionTarget.append(createShortcutHelpRow(templateRow, shortcut));
+  }
+
+  hostSection.append(heading, table);
+}
+
+function findShortcutSectionHeading(root: ParentNode): HTMLElement | null {
+  return root.querySelector<HTMLElement>(HEADING_SELECTOR);
+}
+
+function applyShortcutSectionHeadingStyle(
+  source: HTMLElement,
+  target: HTMLElement,
+): void {
+  const sourceStyle = window.getComputedStyle(source);
+
+  target.style.color = sourceStyle.color;
+  target.style.font = sourceStyle.font;
+  target.style.fontSize = "20px";
+  target.style.fontWeight = "700";
+  target.style.lineHeight = "24px";
+  target.style.letterSpacing = sourceStyle.letterSpacing;
+  target.style.marginBottom = "12px";
+  target.style.marginTop = "16px";
+}
+
+function findShortcutTableInsertionTarget(table: HTMLElement): HTMLElement {
+  return table.querySelector<HTMLElement>("tbody") ?? table;
+}
+
+function findShortcutRowTemplate(table: HTMLElement): HTMLElement | null {
+  const rows = Array.from(
+    table.querySelectorAll<HTMLElement>(SHORTCUT_ROW_SELECTOR),
+  ).filter((row) => getDirectShortcutCells(row).length >= 2);
+
+  return rows[rows.length - 1] ?? null;
+}
+
+type ExtensionShortcutHelpShortcut =
+  (typeof EXTENSION_SHORTCUT_HELP_SHORTCUTS)[number];
+
+function createShortcutHelpRow(
+  templateRow: HTMLElement,
+  shortcut: ExtensionShortcutHelpShortcut,
+): HTMLElement {
+  const row = templateRow.cloneNode(true) as HTMLElement;
+  row.setAttribute(EXTENSION_SHORTCUT_HELP_MARKER, shortcut.id);
+
+  const cells = getDirectShortcutCells(row);
+  const [labelCell, shortcutCell] = cells;
+
+  if (labelCell) {
+    labelCell.textContent = shortcut.label;
+  }
+
+  if (shortcutCell) {
+    renderShortcutKeys(shortcutCell, shortcut.keys);
+  }
+
+  return row;
+}
+
+function getDirectShortcutCells(row: HTMLElement): HTMLElement[] {
+  return Array.from(
+    row.querySelectorAll<HTMLElement>(SHORTCUT_CELL_SELECTOR),
+  ).filter((cell) => cell.closest(SHORTCUT_ROW_SELECTOR) === row);
+}
+
+function renderShortcutKeys(cell: HTMLElement, keys: readonly string[]): void {
+  const keycapTemplate = findKeycapTemplate(cell);
+  cell.replaceChildren();
+
+  keys.forEach((key, index) => {
+    if (index > 0) {
+      cell.append(createShortcutKeySeparator());
+    }
+
+    cell.append(createShortcutKeyElement(key, keycapTemplate));
+  });
+}
+
+function findKeycapTemplate(cell: HTMLElement): HTMLElement | null {
+  const candidates = Array.from(cell.querySelectorAll<HTMLElement>("*")).filter(
+    (element) => {
+      const text = normalizeText(element.textContent);
+      return text.length > 0 && text !== "+";
+    },
+  );
+
+  for (const candidate of candidates) {
+    const keycap = findStyledKeycapAncestor(candidate, cell);
+    if (keycap) {
+      return keycap;
+    }
+  }
+
+  return cell.firstElementChild instanceof HTMLElement
+    ? cell.firstElementChild
+    : null;
+}
+
+function findStyledKeycapAncestor(
+  element: HTMLElement,
+  boundary: HTMLElement,
+): HTMLElement | null {
+  let current: HTMLElement | null = element;
+  let keycap: HTMLElement | null = null;
+
+  while (current && current !== boundary) {
+    if (hasKeycapStyle(current)) {
+      keycap = current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return keycap;
+}
+
+function hasKeycapStyle(element: HTMLElement): boolean {
+  const style = window.getComputedStyle(element);
+
+  return (
+    style.borderTopStyle !== "none" ||
+    style.backgroundColor !== "rgba(0, 0, 0, 0)" ||
+    style.borderRadius !== "0px"
+  );
+}
+
+function createShortcutKeyElement(
+  key: string,
+  template: HTMLElement | null,
+): HTMLElement {
+  const keyElement = template
+    ? (template.cloneNode(true) as HTMLElement)
+    : document.createElement("kbd");
+
+  keyElement.textContent = key;
+  return keyElement;
+}
+
+function createShortcutKeySeparator(): Text {
+  return document.createTextNode(" + ");
+}
 
 function handleKeydown(event: KeyboardEvent): void {
   if (!isSupportedShortcut(event) || isEditableTarget(event.target)) {

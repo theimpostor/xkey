@@ -44,4 +44,6 @@ On `x.com`, use the built-in `j`/`k` keyboard navigation to select a tweet, then
 
 The shortcuts are ignored while typing in inputs, textareas, text boxes, and the post composer. If no keyboard-selected tweet or matching target is found, the key press is left alone so x.com can handle its own shortcuts.
 
+These shortcuts are also added to an `xkey` section in X's `?` keyboard shortcuts menu.
+
 `Shift+S` uses Chrome's tab screenshot API, which requires broad host permission even though the content script only runs on `x.com` and `twitter.com`.
