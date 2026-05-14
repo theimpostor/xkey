@@ -38,6 +38,7 @@ standard macOS location.
 On `x.com`, use the built-in `j`/`k` keyboard navigation to select a tweet, then use:
 
 - `h` to click that selected tweet's `Show more` link.
+- `Shift+G` to click that selected tweet's `Explain this post`/Grok button.
 - `Shift+O` to open a referenced tweet inside the selected tweet.
 - `Shift+S` to copy a screenshot of the visible part of the selected tweet to the clipboard.
 

@@ -8,6 +8,7 @@ import {
 const SHOW_MORE_KEY = "h";
 const OPEN_REFERENCED_TWEET_KEY = "o";
 const SCREENSHOT_TWEET_KEY = "s";
+const EXPLAIN_POST_WITH_GROK_KEY = "g";
 const TWEET_SELECTOR = 'article[data-testid="tweet"]';
 const CLICKABLE_SELECTOR = [
   "a",
@@ -19,6 +20,8 @@ const CLICKABLE_SELECTOR = [
 ].join(",");
 
 const SHOW_MORE_RE = /^show more$/i;
+const EXPLAIN_POST_WITH_GROK_RE = /^(explain this post|grok(?: actions)?)$/i;
+const GROK_TEST_ID_RE = /grok/i;
 const STATUS_PATH_RE = /^\/([^/]+)\/status\/(\d+)(\/.*)?$/;
 
 document.addEventListener("keydown", handleKeydown, true);
@@ -35,6 +38,18 @@ function handleKeydown(event: KeyboardEvent): void {
 
   if (isShowMoreShortcut(event)) {
     const control = findShowMoreControl(selectedTweet);
+    if (!control) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    control.click();
+    return;
+  }
+
+  if (isExplainPostWithGrokShortcut(event)) {
+    const control = findExplainPostWithGrokControl(selectedTweet);
     if (!control) {
       return;
     }
@@ -87,7 +102,8 @@ function isSupportedShortcut(event: KeyboardEvent): boolean {
   return (
     isShowMoreShortcut(event) ||
     isOpenReferencedTweetShortcut(event) ||
-    isScreenshotTweetShortcut(event)
+    isScreenshotTweetShortcut(event) ||
+    isExplainPostWithGrokShortcut(event)
   );
 }
 
@@ -106,6 +122,13 @@ function isScreenshotTweetShortcut(event: KeyboardEvent): boolean {
   return (
     event.key === SCREENSHOT_TWEET_KEY.toUpperCase() ||
     (event.shiftKey && event.key.toLowerCase() === SCREENSHOT_TWEET_KEY)
+  );
+}
+
+function isExplainPostWithGrokShortcut(event: KeyboardEvent): boolean {
+  return (
+    event.key === EXPLAIN_POST_WITH_GROK_KEY.toUpperCase() ||
+    (event.shiftKey && event.key.toLowerCase() === EXPLAIN_POST_WITH_GROK_KEY)
   );
 }
 
@@ -328,6 +351,14 @@ function findShowMoreControl(tweet: Element): HTMLElement | null {
   return null;
 }
 
+function findExplainPostWithGrokControl(tweet: Element): HTMLElement | null {
+  return (
+    Array.from(tweet.querySelectorAll<HTMLElement>('button, [role="button"]'))
+      .filter(isVisible)
+      .find(isExplainPostWithGrokElement) ?? null
+  );
+}
+
 function findReferencedTweetUrl(tweet: Element): string | null {
   const ownStatusId = findOwnStatusId(tweet);
   if (!ownStatusId) {
@@ -498,6 +529,25 @@ function isShowMoreText(element: HTMLElement): boolean {
   }
 
   return SHOW_MORE_RE.test(normalizeText(element.textContent));
+}
+
+function isExplainPostWithGrokElement(element: HTMLElement): boolean {
+  const label = getAccessibleLabel(element);
+
+  return EXPLAIN_POST_WITH_GROK_RE.test(label) || hasGrokTestId(element);
+}
+
+function hasGrokTestId(element: HTMLElement): boolean {
+  const testId = element.getAttribute("data-testid");
+  if (testId && GROK_TEST_ID_RE.test(testId)) {
+    return true;
+  }
+
+  return Array.from(element.querySelectorAll<HTMLElement>("[data-testid]"))
+    .map((descendant) => descendant.getAttribute("data-testid"))
+    .some((descendantTestId) =>
+      descendantTestId ? GROK_TEST_ID_RE.test(descendantTestId) : false,
+    );
 }
 
 function findClickableAncestor(
