@@ -13,11 +13,11 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.14",
+    "@biomejs/biome": "^2.4.15",
     "@types/bun": "latest",
-    "chrome-types": "^0.1.425",
-    "jscpd": "^4.0.9",
-    "knip": "^6.11.0",
+    "chrome-types": "^0.1.427",
+    "jscpd": "^4.1.1",
+    "knip": "^6.13.1",
     "typescript": "^6.0.3"
   }
 }
