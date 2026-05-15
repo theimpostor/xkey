@@ -15,9 +15,9 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
     "@types/bun": "latest",
-    "chrome-types": "^0.1.427",
-    "jscpd": "^4.1.1",
-    "knip": "^6.13.1",
+    "chrome-types": "^0.1.428",
+    "jscpd": "^4.2.0",
+    "knip": "^6.14.0",
     "typescript": "^6.0.3"
   }
 }

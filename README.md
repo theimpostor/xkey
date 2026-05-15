@@ -46,4 +46,7 @@ The shortcuts are ignored while typing in inputs, textareas, text boxes, and the
 
 These shortcuts are also added to an `xkey` section in X's `?` keyboard shortcuts menu.
 
-`Shift+S` uses Chrome's tab screenshot API, which requires broad host permission even though the content script only runs on `x.com` and `twitter.com`.
+`Shift+S` uses Chrome's `tabs.captureVisibleTab()` API. Chrome requires either
+`<all_urls>` or `activeTab` for this API; this extension uses `<all_urls>`
+because `Shift+S` is handled as an in-page X keyboard shortcut rather than a
+browser extension invocation.
