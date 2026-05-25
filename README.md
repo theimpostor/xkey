@@ -12,22 +12,12 @@ bun run build
 ## Pack Release Artifacts
 
 ```sh
-bun run pack:crx
 bun run pack:zip
 ```
 
-These are equivalent to `bun run build.ts --crx` and
-`bun run build.ts --crx --zip-crx`.
+This is equivalent to `bun run build.ts --zip`.
 
-These rebuild `dist` and write `releases/x-show-more-hotkey-0.1.1.crx` or
-`releases/x-show-more-hotkey-0.1.1.zip`.
-On the first run, Chrome generates a private key and the script saves it as
-`.crx-key.pem`. Keep that file if you want future CRX builds to keep the same
-extension ID.
-
-Use `CRX_KEY=/path/to/key.pem bun run pack:crx` to pack with an existing key,
-or `CHROME_BIN=/path/to/chrome bun run pack:crx` if Chrome is not installed in a
-standard macOS location.
+This rebuilds `dist` and writes `releases/x-show-more-hotkey-0.1.1.zip`.
 
 ## Install
 
@@ -35,10 +25,11 @@ standard macOS location.
 
 1. Open the latest release on GitHub.
 2. Download `x-show-more-hotkey-0.1.1.zip` from the release assets.
-3. Rename the downloaded file to `x-show-more-hotkey-0.1.1.crx`. Do not unzip it.
+3. Unzip it somewhere permanent.
 4. Open `chrome://extensions`.
 5. Enable **Developer mode**.
-6. Drag the renamed `.crx` file onto the extensions page and approve the install.
+6. Click **Load unpacked**.
+7. Select the unzipped extension folder.
 
 ### Local Development
 

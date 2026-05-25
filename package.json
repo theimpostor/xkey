@@ -9,8 +9,7 @@
     "checkfix": "biome check --write",
     "jscpd": "jscpd",
     "knip": "knip",
-    "pack:crx": "bun run build.ts --crx",
-    "pack:zip": "bun run build.ts --crx --zip-crx",
+    "pack:zip": "bun run build.ts --zip",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
