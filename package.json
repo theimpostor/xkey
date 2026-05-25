@@ -1,6 +1,6 @@
 {
   "name": "x-show-more-hotkey",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "all": "bun run --parallel build check jscpd knip typecheck",
