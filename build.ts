@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
-import { access, mkdir, rename, rm } from "node:fs/promises";
+import { access, copyFile, mkdir, rename, rm } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,7 +21,15 @@ const contentEntry = new URL("src/content.ts", rootUrl).pathname;
 const backgroundEntry = new URL("src/background.ts", rootUrl).pathname;
 const args = process.argv.slice(2);
 const shouldPackCrx = args.includes("--crx");
-const unknownArgs = args.filter((arg) => arg !== "--crx");
+const shouldZipCrx = args.includes("--zip-crx");
+const unknownArgs = args.filter(
+  (arg) => arg !== "--crx" && arg !== "--zip-crx",
+);
+
+type ReleaseArtifactPaths = {
+  crx: string;
+  zip: string;
+};
 
 function rootRelative(path: string): string {
   return isAbsolute(path) ? path : resolve(rootPath, path);
@@ -80,6 +88,20 @@ async function run(command: string, commandArgs: string[]): Promise<void> {
   });
 }
 
+async function getReleaseArtifactPaths(): Promise<ReleaseArtifactPaths> {
+  const packageJson = (await Bun.file(
+    new URL("package.json", rootUrl),
+  ).json()) as PackageJson;
+  const name = packageJson.name ?? "extension";
+  const version = packageJson.version ?? "0.0.0";
+  const basePath = resolve(releasePath, `${name}-${version}`);
+
+  return {
+    crx: `${basePath}.crx`,
+    zip: `${basePath}.zip`,
+  };
+}
+
 async function build(): Promise<void> {
   await rm(distUrl, { recursive: true, force: true });
   await mkdir(distUrl, { recursive: true });
@@ -109,12 +131,7 @@ async function build(): Promise<void> {
 
 async function packCrx(): Promise<void> {
   const chromePath = await findChrome();
-  const packageJson = (await Bun.file(
-    new URL("package.json", rootUrl),
-  ).json()) as PackageJson;
-  const name = packageJson.name ?? "extension";
-  const version = packageJson.version ?? "0.0.0";
-  const artifactPath = resolve(releasePath, `${name}-${version}.crx`);
+  const artifactPaths = await getReleaseArtifactPaths();
   const { CRX_KEY: crxKey } = process.env;
 
   const configuredKeyPath =
@@ -141,15 +158,29 @@ async function packCrx(): Promise<void> {
   }
 
   await mkdir(releasePath, { recursive: true });
-  await rm(artifactPath, { force: true });
-  await rename(generatedCrxPath, artifactPath);
+  await rm(artifactPaths.crx, { force: true });
+  await rename(generatedCrxPath, artifactPaths.crx);
 
   if (!hasKey && (await exists(generatedKeyPath))) {
     await rename(generatedKeyPath, defaultKeyPath);
     console.log(`Saved generated CRX key: ${defaultKeyPath}`);
   }
 
-  console.log(`Packed CRX: ${artifactPath}`);
+  console.log(`Packed CRX: ${artifactPaths.crx}`);
+}
+
+async function zipCrx(): Promise<void> {
+  const artifactPaths = await getReleaseArtifactPaths();
+
+  if (!(await exists(artifactPaths.crx))) {
+    throw new Error(`CRX artifact does not exist: ${artifactPaths.crx}`);
+  }
+
+  await mkdir(releasePath, { recursive: true });
+  await rm(artifactPaths.zip, { force: true });
+  await copyFile(artifactPaths.crx, artifactPaths.zip);
+
+  console.log(`Copied ZIP: ${artifactPaths.zip}`);
 }
 
 try {
@@ -157,10 +188,18 @@ try {
     throw new Error(`Unknown build argument: ${unknownArgs.join(", ")}`);
   }
 
-  await build();
+  if (shouldZipCrx && !shouldPackCrx) {
+    await zipCrx();
+  } else {
+    await build();
 
-  if (shouldPackCrx) {
-    await packCrx();
+    if (shouldPackCrx) {
+      await packCrx();
+    }
+
+    if (shouldZipCrx) {
+      await zipCrx();
+    }
   }
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

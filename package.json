@@ -10,6 +10,7 @@
     "jscpd": "jscpd",
     "knip": "knip",
     "pack:crx": "bun run build.ts --crx",
+    "pack:zip": "bun run build.ts --crx --zip-crx",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
