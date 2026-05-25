@@ -54,11 +54,296 @@ const KEYBOARD_SHORTCUT_HELP_TITLE = "Keyboard shortcuts";
 const EXTENSION_SHORTCUT_HELP_HOST_SECTION_TITLE = "Media";
 const EXTENSION_SHORTCUT_HELP_SECTION_TITLE = "xkey";
 const EXTENSION_SHORTCUT_HELP_MARKER = "data-x-keyboard-extras-shortcut";
+const PROMOTED_TWEET_STATE_ATTRIBUTE = "data-x-keyboard-extras-promoted-tweet";
+const PROMOTED_TWEET_SIGNATURE_ATTRIBUTE =
+  "data-x-keyboard-extras-promoted-tweet-signature";
+const PROMOTED_TWEET_SUMMARY_ATTRIBUTE =
+  "data-x-keyboard-extras-promoted-tweet-summary";
+const PROMOTED_TWEET_LABEL_SELECTOR = "span, div";
+const PROMOTED_TWEET_LABEL_EXCLUSION_SELECTOR = [
+  '[data-testid="tweetText"]',
+  '[data-testid="User-Name"]',
+  '[data-testid="card.wrapper"]',
+].join(",");
+const PROMOTED_TWEET_LABEL_RE = /^(ad|promoted|sponsored|promoted by\b.*)$/i;
+const PROMOTED_TWEET_LABEL_MAX_TOP_OFFSET = 96;
+const PROMOTED_TWEET_LABEL_MAX_USER_NAME_TOP_DELTA = 32;
+const PROMOTED_TWEET_COLLAPSED_STATE = "collapsed";
+const PROMOTED_TWEET_EXPANDED_STATE = "expanded";
 
 let keyboardShortcutHelpAugmentationFrame = 0;
+let promotedTweetCollapsingFrame = 0;
+let promotedTweetCollapseStyle: HTMLStyleElement | null = null;
 
 document.addEventListener("keydown", handleKeydown, true);
 startKeyboardShortcutHelpAugmenter();
+startPromotedTweetCollapser();
+
+function startPromotedTweetCollapser(): void {
+  schedulePromotedTweetCollapsing();
+
+  const observer = new MutationObserver(schedulePromotedTweetCollapsing);
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  });
+}
+
+function schedulePromotedTweetCollapsing(): void {
+  if (promotedTweetCollapsingFrame !== 0) {
+    return;
+  }
+
+  promotedTweetCollapsingFrame = window.requestAnimationFrame(() => {
+    promotedTweetCollapsingFrame = 0;
+    collapsePromotedTweets();
+  });
+}
+
+function collapsePromotedTweets(): void {
+  ensurePromotedTweetCollapseStyle();
+
+  for (const tweet of document.querySelectorAll<HTMLElement>(TWEET_SELECTOR)) {
+    updatePromotedTweetCollapse(tweet);
+  }
+}
+
+function updatePromotedTweetCollapse(tweet: HTMLElement): void {
+  const previousSignature = tweet.getAttribute(
+    PROMOTED_TWEET_SIGNATURE_ATTRIBUTE,
+  );
+  const signature = getPromotedTweetSignature(tweet);
+
+  if (previousSignature !== null && previousSignature !== signature) {
+    resetPromotedTweetCollapse(tweet);
+  }
+
+  if (isManagedPromotedTweet(tweet)) {
+    ensurePromotedTweetSummary(tweet);
+    return;
+  }
+
+  if (!isPromotedTweet(tweet)) {
+    resetPromotedTweetCollapse(tweet);
+    return;
+  }
+
+  tweet.setAttribute(
+    PROMOTED_TWEET_STATE_ATTRIBUTE,
+    PROMOTED_TWEET_COLLAPSED_STATE,
+  );
+  tweet.setAttribute(PROMOTED_TWEET_SIGNATURE_ATTRIBUTE, signature);
+  ensurePromotedTweetSummary(tweet);
+}
+
+function isManagedPromotedTweet(tweet: HTMLElement): boolean {
+  return (
+    tweet.getAttribute(PROMOTED_TWEET_STATE_ATTRIBUTE) ===
+      PROMOTED_TWEET_COLLAPSED_STATE ||
+    tweet.getAttribute(PROMOTED_TWEET_STATE_ATTRIBUTE) ===
+      PROMOTED_TWEET_EXPANDED_STATE
+  );
+}
+
+function resetPromotedTweetCollapse(tweet: HTMLElement): void {
+  tweet.removeAttribute(PROMOTED_TWEET_STATE_ATTRIBUTE);
+  tweet.removeAttribute(PROMOTED_TWEET_SIGNATURE_ATTRIBUTE);
+  findPromotedTweetSummary(tweet)?.remove();
+}
+
+function ensurePromotedTweetCollapseStyle(): void {
+  if (promotedTweetCollapseStyle?.isConnected) {
+    return;
+  }
+
+  promotedTweetCollapseStyle = document.createElement("style");
+  promotedTweetCollapseStyle.textContent = `
+[${PROMOTED_TWEET_STATE_ATTRIBUTE}="${PROMOTED_TWEET_COLLAPSED_STATE}"] > :not([${PROMOTED_TWEET_SUMMARY_ATTRIBUTE}]) {
+  display: none !important;
+}
+[${PROMOTED_TWEET_SUMMARY_ATTRIBUTE}] {
+  align-items: center;
+  box-sizing: border-box;
+  color: inherit;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 12px 16px;
+}
+[${PROMOTED_TWEET_SUMMARY_ATTRIBUTE}] span {
+  color: rgb(83, 100, 113);
+  font: 14px/20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+[${PROMOTED_TWEET_SUMMARY_ATTRIBUTE}] button {
+  background: transparent;
+  border: 1px solid rgb(83, 100, 113);
+  border-radius: 9999px;
+  color: inherit;
+  cursor: pointer;
+  font: 700 14px/20px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-height: 32px;
+  padding: 5px 14px;
+}
+[${PROMOTED_TWEET_SUMMARY_ATTRIBUTE}] button:hover {
+  background: rgba(83, 100, 113, 0.12);
+}
+`;
+  (document.head || document.documentElement).append(
+    promotedTweetCollapseStyle,
+  );
+}
+
+function ensurePromotedTweetSummary(tweet: HTMLElement): void {
+  const summary =
+    findPromotedTweetSummary(tweet) || createPromotedTweetSummary();
+  const button = summary.querySelector("button");
+  const collapsed =
+    tweet.getAttribute(PROMOTED_TWEET_STATE_ATTRIBUTE) !==
+    PROMOTED_TWEET_EXPANDED_STATE;
+
+  if (!summary.isConnected || summary.parentElement !== tweet) {
+    tweet.prepend(summary);
+  }
+
+  if (button) {
+    button.textContent = collapsed ? "Show" : "Hide";
+    button.setAttribute("aria-expanded", String(!collapsed));
+    button.setAttribute(
+      "aria-label",
+      collapsed ? "Show promoted post" : "Hide promoted post",
+    );
+  }
+}
+
+function findPromotedTweetSummary(tweet: Element): HTMLElement | null {
+  return tweet.querySelector<HTMLElement>(
+    `:scope > [${PROMOTED_TWEET_SUMMARY_ATTRIBUTE}]`,
+  );
+}
+
+function createPromotedTweetSummary(): HTMLElement {
+  const summary = document.createElement("div");
+  summary.setAttribute(PROMOTED_TWEET_SUMMARY_ATTRIBUTE, "true");
+
+  const label = document.createElement("span");
+  label.textContent = "Promoted post";
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.addEventListener("click", handlePromotedTweetSummaryClick);
+
+  summary.append(label, button);
+  return summary;
+}
+
+function handlePromotedTweetSummaryClick(event: MouseEvent): void {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const button = event.currentTarget;
+  if (!(button instanceof HTMLElement)) {
+    return;
+  }
+
+  const tweet = button.closest<HTMLElement>(TWEET_SELECTOR);
+  if (!tweet) {
+    return;
+  }
+
+  const isExpanded =
+    tweet.getAttribute(PROMOTED_TWEET_STATE_ATTRIBUTE) ===
+    PROMOTED_TWEET_EXPANDED_STATE;
+
+  tweet.setAttribute(
+    PROMOTED_TWEET_STATE_ATTRIBUTE,
+    isExpanded ? PROMOTED_TWEET_COLLAPSED_STATE : PROMOTED_TWEET_EXPANDED_STATE,
+  );
+  ensurePromotedTweetSummary(tweet);
+  tweet.focus();
+}
+
+function getPromotedTweetSignature(tweet: Element): string {
+  const text = [
+    tweet.querySelector('[data-testid="User-Name"]')?.textContent,
+    tweet.querySelector('[data-testid="tweetText"]')?.textContent,
+    tweet.querySelector('[data-testid="card.wrapper"]')?.textContent,
+  ]
+    .map((text) => normalizeText(text ?? null))
+    .filter(Boolean)
+    .join(" ");
+  const links = Array.from(tweet.querySelectorAll<HTMLAnchorElement>("a[href]"))
+    .filter((link) => !link.closest(`[${PROMOTED_TWEET_SUMMARY_ATTRIBUTE}]`))
+    .map((link) => link.href)
+    .slice(0, 8)
+    .join(" ");
+  const fallbackText = Array.from(tweet.childNodes)
+    .filter((node) => !isPromotedTweetSummaryNode(node))
+    .map((node) => normalizeText(node.textContent))
+    .filter(Boolean)
+    .join(" ");
+
+  return `${text || fallbackText} ${links}`.slice(0, 1_000);
+}
+
+function isPromotedTweetSummaryNode(node: ChildNode): boolean {
+  return (
+    node instanceof Element &&
+    node.hasAttribute(PROMOTED_TWEET_SUMMARY_ATTRIBUTE)
+  );
+}
+
+function isPromotedTweet(tweet: Element): boolean {
+  return Array.from(
+    tweet.querySelectorAll<HTMLElement>(PROMOTED_TWEET_LABEL_SELECTOR),
+  ).some((element) => isPromotedTweetLabel(element, tweet));
+}
+
+function isPromotedTweetLabel(element: HTMLElement, tweet: Element): boolean {
+  if (
+    !isVisible(element) ||
+    element.closest(PROMOTED_TWEET_LABEL_EXCLUSION_SELECTOR)
+  ) {
+    return false;
+  }
+
+  const text = normalizeText(element.textContent);
+  if (!PROMOTED_TWEET_LABEL_RE.test(text)) {
+    return false;
+  }
+
+  return isInPromotedTweetLabelRegion(element, tweet);
+}
+
+function isInPromotedTweetLabelRegion(
+  element: HTMLElement,
+  tweet: Element,
+): boolean {
+  const tweetRect = tweet.getBoundingClientRect();
+  const elementRect = element.getBoundingClientRect();
+
+  if (
+    elementRect.top < tweetRect.top ||
+    elementRect.top - tweetRect.top > PROMOTED_TWEET_LABEL_MAX_TOP_OFFSET
+  ) {
+    return false;
+  }
+
+  const userName = tweet.querySelector<HTMLElement>(
+    '[data-testid="User-Name"]',
+  );
+  if (!userName || !isVisible(userName)) {
+    return true;
+  }
+
+  const userNameRect = userName.getBoundingClientRect();
+  return (
+    elementRect.left >= userNameRect.left &&
+    Math.abs(elementRect.top - userNameRect.top) <=
+      PROMOTED_TWEET_LABEL_MAX_USER_NAME_TOP_DELTA
+  );
+}
 
 function startKeyboardShortcutHelpAugmenter(): void {
   scheduleKeyboardShortcutHelpAugmentation();
