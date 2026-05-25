@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "X Keyboard Extras",
   "description": "Adds keyboard shortcuts for Show more, Grok, referenced tweets, and screenshots on x.com posts.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "permissions": ["clipboardWrite"],
   "host_permissions": ["<all_urls>"],
   "background": {

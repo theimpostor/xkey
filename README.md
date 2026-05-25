@@ -2,6 +2,25 @@
 
 Chrome extension that augments x.com keyboard shortcuts.
 
+## Install
+
+### GitHub Release
+
+1. Open the latest release on GitHub.
+2. Download `xkey-0.1.2.zip` from the release assets.
+3. Unzip it somewhere permanent.
+4. Open `chrome://extensions`.
+5. Enable **Developer mode**.
+6. Click **Load unpacked**.
+7. Select the unzipped extension folder.
+
+### Local Development
+
+1. Open `chrome://extensions`.
+2. Enable **Developer mode**.
+3. Click **Load unpacked**.
+4. Select the generated `dist` folder.
+
 ## Build
 
 ```sh
@@ -17,26 +36,7 @@ bun run pack:zip
 
 This is equivalent to `bun run build.ts --zip`.
 
-This rebuilds `dist` and writes `releases/x-show-more-hotkey-0.1.1.zip`.
-
-## Install
-
-### GitHub Release
-
-1. Open the latest release on GitHub.
-2. Download `x-show-more-hotkey-0.1.1.zip` from the release assets.
-3. Unzip it somewhere permanent.
-4. Open `chrome://extensions`.
-5. Enable **Developer mode**.
-6. Click **Load unpacked**.
-7. Select the unzipped extension folder.
-
-### Local Development
-
-1. Open `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Click **Load unpacked**.
-4. Select the generated `dist` folder.
+This rebuilds `dist` and writes `releases/xkey-0.1.2.zip`.
 
 ## Use
 
