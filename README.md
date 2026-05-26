@@ -1,31 +1,26 @@
 # X Keyboard Extras
 
-Chrome extension that augments x.com keyboard shortcuts.
+Chrome extension for enhanced keyboard navigation on x.com (formerly Twitter). Adds keyboard shortcuts for expanding longer tweets hidden by `Show more`, opening sub-tweets, Grok, and screenshots.
 
 ## Usage
 
 On `x.com`, use the built-in `j`/`k` keyboard navigation to select a tweet, then use:
 
-- `h` to click that selected tweet's `Show more` link.
-- `Shift+G` to click that selected tweet's `Explain this post`/Grok button.
-- `Shift+O` to open a referenced tweet inside the selected tweet.
-- `Shift+S` to copy a screenshot of the visible part of the selected tweet to the clipboard.
+- `h`: expand the text behind the `Show more` link.
+- `Shift+G`: `Explain this post` with Grok.
+- `Shift+O`: Open the sub-tweet.
+- `Shift+S`: Take a screenshot of the selected tweet and copy it to the clipboard.
 
-The shortcuts are ignored while typing in inputs, textareas, text boxes, and the post composer. If no keyboard-selected tweet or matching target is found, the key press is left alone so x.com can handle its own shortcuts.
+These shortcuts are also documented in the built-in `?` keyboard shortcuts menu on `x.com`.
 
-These shortcuts are also added to an `xkey` section in X's `?` keyboard shortcuts menu.
-
-`Shift+S` uses Chrome's `tabs.captureVisibleTab()` API. Chrome requires either
-`<all_urls>` or `activeTab` for this API; this extension uses `<all_urls>`
-because `Shift+S` is handled as an in-page X keyboard shortcut rather than a
-browser extension invocation.
+Promoted posts are also hidden behind a 'Show promoted post' button.
 
 ## Install
 
 ### GitHub Release
 
 1. Open the latest release on GitHub.
-2. Download `xkey-0.1.2.zip` from the release assets.
+2. Download `xkey-<version>.zip` from the release assets.
 3. Unzip it somewhere permanent.
 4. Open `chrome://extensions`.
 5. Enable **Developer mode**.
@@ -52,6 +47,4 @@ bun run build
 bun run pack:zip
 ```
 
-This is equivalent to `bun run build.ts --zip`.
-
-This rebuilds `dist` and writes `releases/xkey-0.1.2.zip`.
+This rebuilds `dist` and writes `releases/xkey-<version>.zip`.
