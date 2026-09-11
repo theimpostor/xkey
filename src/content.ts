@@ -65,7 +65,13 @@ const PROMOTED_TWEET_LABEL_EXCLUSION_SELECTOR = [
   '[data-testid="User-Name"]',
   '[data-testid="card.wrapper"]',
 ].join(",");
-const PROMOTED_TWEET_LABEL_RE = /^(ad|promoted|sponsored|promoted by\b.*)$/i;
+const PROMOTED_TWEET_LABEL_RE =
+  /^(ad|boosted|promoted|sponsored|promoted by\b.*)$/i;
+const VIDEO_PLAYER_SELECTOR = '[data-testid="videoPlayer"]';
+const PROMOTED_VIDEO_AD_CUE_SELECTOR =
+  'span, div, button, [role="button"], [aria-label]';
+const PROMOTED_VIDEO_AD_RE = /\bvideo will play after ad\b/i;
+const PROMOTED_VIDEO_AD_SKIP_RE = /^skip(?: ad)?$/i;
 const PROMOTED_TWEET_LABEL_MAX_TOP_OFFSET = 96;
 const PROMOTED_TWEET_LABEL_MAX_USER_NAME_TOP_DELTA = 32;
 const PROMOTED_TWEET_COLLAPSED_STATE = "collapsed";
@@ -73,7 +79,10 @@ const PROMOTED_TWEET_EXPANDED_STATE = "expanded";
 
 let keyboardShortcutHelpAugmentationFrame = 0;
 let promotedTweetCollapsingFrame = 0;
+let promotedTweetNavigationFrame = 0;
 let promotedTweetCollapseStyle: HTMLStyleElement | null = null;
+let screenshotToast: HTMLDivElement | null = null;
+let screenshotToastTimeout = 0;
 
 document.addEventListener("keydown", handleKeydown, true);
 startKeyboardShortcutHelpAugmenter();
@@ -295,9 +304,14 @@ function isPromotedTweetSummaryNode(node: ChildNode): boolean {
 }
 
 function isPromotedTweet(tweet: Element): boolean {
-  return Array.from(
+  const candidates = Array.from(
     tweet.querySelectorAll<HTMLElement>(PROMOTED_TWEET_LABEL_SELECTOR),
-  ).some((element) => isPromotedTweetLabel(element, tweet));
+  );
+
+  return (
+    candidates.some((element) => isPromotedTweetLabel(element, tweet)) ||
+    hasPromotedVideoAd(tweet)
+  );
 }
 
 function isPromotedTweetLabel(element: HTMLElement, tweet: Element): boolean {
@@ -314,6 +328,41 @@ function isPromotedTweetLabel(element: HTMLElement, tweet: Element): boolean {
   }
 
   return isInPromotedTweetLabelRegion(element, tweet);
+}
+
+function hasPromotedVideoAd(tweet: Element): boolean {
+  const videoPlayers = Array.from(
+    tweet.querySelectorAll<HTMLElement>(VIDEO_PLAYER_SELECTOR),
+  );
+
+  return videoPlayers.some((videoPlayer) => {
+    if (!isVisible(videoPlayer)) {
+      return false;
+    }
+
+    return Array.from(
+      videoPlayer.querySelectorAll<HTMLElement>(PROMOTED_VIDEO_AD_CUE_SELECTOR),
+    ).some(isPromotedVideoAdElement);
+  });
+}
+
+function isPromotedVideoAdElement(element: HTMLElement): boolean {
+  if (
+    !isVisible(element) ||
+    element.closest(`[${PROMOTED_TWEET_SUMMARY_ATTRIBUTE}]`)
+  ) {
+    return false;
+  }
+
+  const label = normalizeText(
+    element.getAttribute("aria-label") ||
+      element.getAttribute("title") ||
+      element.textContent,
+  );
+
+  return (
+    PROMOTED_VIDEO_AD_RE.test(label) || PROMOTED_VIDEO_AD_SKIP_RE.test(label)
+  );
 }
 
 function isInPromotedTweetLabelRegion(
@@ -624,6 +673,8 @@ function createShortcutKeySeparator(): Text {
 }
 
 function handleKeydown(event: KeyboardEvent): void {
+  scheduleCollapsedTweetSkipping(event);
+
   if (!isSupportedShortcut(event) || isEditableTarget(event.target)) {
     return;
   }
@@ -665,9 +716,13 @@ function handleKeydown(event: KeyboardEvent): void {
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    void copyVisibleTweetScreenshot(visibleTweetRect).catch(
-      reportShortcutError,
-    );
+    dismissScreenshotToast();
+    void copyVisibleTweetScreenshot(visibleTweetRect)
+      .then(() => showScreenshotToast("Screenshot copied to clipboard"))
+      .catch((error: unknown) => {
+        reportShortcutError(error);
+        showScreenshotToast("Couldn’t copy screenshot. Please try again.");
+      });
     return;
   }
 
@@ -689,6 +744,66 @@ function handleKeydown(event: KeyboardEvent): void {
   }
 
   referencedTweetCard?.click();
+}
+
+function scheduleCollapsedTweetSkipping(event: KeyboardEvent): void {
+  // Synthetic navigation below must reach X without starting another skip loop.
+  if (!event.isTrusted) return;
+  window.cancelAnimationFrame(promotedTweetNavigationFrame);
+  if (
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    (event.key !== "j" && event.key !== "k") ||
+    isEditableTarget(event.target) ||
+    document.querySelector('[role="dialog"]')
+  ) {
+    return;
+  }
+
+  const visited = new Set<Element>();
+  const advance = (): void => {
+    promotedTweetNavigationFrame = 0;
+    const active = document.activeElement;
+    const tweet = active?.closest(TWEET_SELECTOR);
+    if (
+      !tweet ||
+      isEditableTarget(active) ||
+      document.querySelector('[role="dialog"]') ||
+      tweet.getAttribute(PROMOTED_TWEET_STATE_ATTRIBUTE) !==
+        PROMOTED_TWEET_COLLAPSED_STATE ||
+      visited.has(tweet) ||
+      visited.size >= 50
+    ) {
+      return;
+    }
+    visited.add(tweet);
+
+    // Let X update both its internal selection and focus, then inspect the result.
+    const init: KeyboardEventInit = {
+      key: event.key,
+      code: event.code,
+      keyCode: event.keyCode,
+      which: event.which,
+      bubbles: true,
+      cancelable: true,
+    };
+    active?.dispatchEvent(new KeyboardEvent("keydown", init));
+    if (document.activeElement === active) {
+      active?.dispatchEvent(
+        new KeyboardEvent("keypress", {
+          ...init,
+          charCode: event.key.charCodeAt(0),
+          keyCode: event.key.charCodeAt(0),
+          which: event.key.charCodeAt(0),
+        }),
+      );
+    }
+    document.activeElement?.dispatchEvent(new KeyboardEvent("keyup", init));
+    promotedTweetNavigationFrame = window.requestAnimationFrame(advance);
+  };
+  promotedTweetNavigationFrame = window.requestAnimationFrame(advance);
 }
 
 function isSupportedShortcut(event: KeyboardEvent): boolean {
@@ -762,6 +877,42 @@ async function copyVisibleTweetScreenshot(rect: Rect): Promise<void> {
       [imageBlob.type || "image/png"]: imageBlob,
     }),
   ]);
+}
+
+function dismissScreenshotToast(): void {
+  window.clearTimeout(screenshotToastTimeout);
+  screenshotToast?.remove();
+  screenshotToast = null;
+}
+
+function showScreenshotToast(message: string): void {
+  dismissScreenshotToast();
+  const toast = document.createElement("div");
+  toast.setAttribute("role", "status");
+  toast.setAttribute("aria-live", "polite");
+  toast.setAttribute("aria-atomic", "true");
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2147483647;
+    box-sizing: border-box;
+    max-width: calc(100vw - 32px);
+    padding: 12px 20px;
+    border: 1px solid #536471;
+    border-radius: 12px;
+    background: #0f1419;
+    color: #fff;
+    box-shadow: 0 4px 20px #0004;
+    font: 500 15px/1.4 system-ui, sans-serif;
+    text-align: center;
+    pointer-events: none;
+  `;
+  document.body.append(toast);
+  toast.textContent = message;
+  screenshotToast = toast;
+  screenshotToastTimeout = window.setTimeout(dismissScreenshotToast, 3_000);
 }
 
 function getVisibleTweetRect(tweet: Element): Rect | null {

@@ -9,11 +9,12 @@ On `x.com`, use the built-in `j`/`k` keyboard navigation to select a tweet, then
 - `h`: expand the text behind the `Show more` link.
 - `Shift+G`: `Explain this post` with Grok.
 - `Shift+O`: Open the sub-tweet.
-- `Shift+S`: Take a screenshot of the selected tweet and copy it to the clipboard.
+- `Shift+S`: Take a screenshot of the selected tweet and copy it to the clipboard. A brief toast confirms the copy or reports a failure.
 
 These shortcuts are also documented in the built-in `?` keyboard shortcuts menu on `x.com`.
 
-Promoted posts are also hidden behind a 'Show promoted post' button.
+Promoted posts, including boosted posts, are also hidden behind a 'Show promoted post' button.
+The `j`/`k` shortcuts skip collapsed promoted posts; expanded posts remain selectable.
 
 ## Install
 
