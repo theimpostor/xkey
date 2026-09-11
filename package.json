@@ -3,21 +3,21 @@
   "version": "0.1.2",
   "private": true,
   "scripts": {
-    "all": "bun run --parallel build check jscpd knip typecheck",
+    "all": "bun run --parallel build check cpd knip typecheck",
     "build": "bun run build.ts",
     "check": "biome check --error-on-warnings",
     "checkfix": "biome check --write",
-    "jscpd": "jscpd",
+    "cpd": "jscpd",
     "knip": "knip",
     "pack:zip": "bun run build.ts --zip",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.15",
-    "@types/bun": "latest",
-    "chrome-types": "^0.1.429",
-    "jscpd": "^4.2.3",
-    "knip": "^6.14.2",
-    "typescript": "^6.0.3"
+    "@biomejs/biome": "^2.5.13",
+    "@types/bun": "^1.4.2",
+    "chrome-types": "^0.1.445",
+    "jscpd": "^5.2.0",
+    "knip": "^6.35.1",
+    "typescript": "^7.0.2"
   }
 }
