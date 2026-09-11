@@ -65,7 +65,8 @@ const PROMOTED_TWEET_LABEL_EXCLUSION_SELECTOR = [
   '[data-testid="User-Name"]',
   '[data-testid="card.wrapper"]',
 ].join(",");
-const PROMOTED_TWEET_LABEL_RE = /^(ad|promoted|sponsored|promoted by\b.*)$/i;
+const PROMOTED_TWEET_LABEL_RE =
+  /^(ad|boosted|promoted|sponsored|promoted by\b.*)$/i;
 const VIDEO_PLAYER_SELECTOR = '[data-testid="videoPlayer"]';
 const PROMOTED_VIDEO_AD_CUE_SELECTOR =
   'span, div, button, [role="button"], [aria-label]';
