@@ -66,6 +66,11 @@ const PROMOTED_TWEET_LABEL_EXCLUSION_SELECTOR = [
   '[data-testid="card.wrapper"]',
 ].join(",");
 const PROMOTED_TWEET_LABEL_RE = /^(ad|promoted|sponsored|promoted by\b.*)$/i;
+const VIDEO_PLAYER_SELECTOR = '[data-testid="videoPlayer"]';
+const PROMOTED_VIDEO_AD_CUE_SELECTOR =
+  'span, div, button, [role="button"], [aria-label]';
+const PROMOTED_VIDEO_AD_RE = /\bvideo will play after ad\b/i;
+const PROMOTED_VIDEO_AD_SKIP_RE = /^skip(?: ad)?$/i;
 const PROMOTED_TWEET_LABEL_MAX_TOP_OFFSET = 96;
 const PROMOTED_TWEET_LABEL_MAX_USER_NAME_TOP_DELTA = 32;
 const PROMOTED_TWEET_COLLAPSED_STATE = "collapsed";
@@ -295,9 +300,14 @@ function isPromotedTweetSummaryNode(node: ChildNode): boolean {
 }
 
 function isPromotedTweet(tweet: Element): boolean {
-  return Array.from(
+  const candidates = Array.from(
     tweet.querySelectorAll<HTMLElement>(PROMOTED_TWEET_LABEL_SELECTOR),
-  ).some((element) => isPromotedTweetLabel(element, tweet));
+  );
+
+  return (
+    candidates.some((element) => isPromotedTweetLabel(element, tweet)) ||
+    hasPromotedVideoAd(tweet)
+  );
 }
 
 function isPromotedTweetLabel(element: HTMLElement, tweet: Element): boolean {
@@ -314,6 +324,41 @@ function isPromotedTweetLabel(element: HTMLElement, tweet: Element): boolean {
   }
 
   return isInPromotedTweetLabelRegion(element, tweet);
+}
+
+function hasPromotedVideoAd(tweet: Element): boolean {
+  const videoPlayers = Array.from(
+    tweet.querySelectorAll<HTMLElement>(VIDEO_PLAYER_SELECTOR),
+  );
+
+  return videoPlayers.some((videoPlayer) => {
+    if (!isVisible(videoPlayer)) {
+      return false;
+    }
+
+    return Array.from(
+      videoPlayer.querySelectorAll<HTMLElement>(PROMOTED_VIDEO_AD_CUE_SELECTOR),
+    ).some(isPromotedVideoAdElement);
+  });
+}
+
+function isPromotedVideoAdElement(element: HTMLElement): boolean {
+  if (
+    !isVisible(element) ||
+    element.closest(`[${PROMOTED_TWEET_SUMMARY_ATTRIBUTE}]`)
+  ) {
+    return false;
+  }
+
+  const label = normalizeText(
+    element.getAttribute("aria-label") ||
+      element.getAttribute("title") ||
+      element.textContent,
+  );
+
+  return (
+    PROMOTED_VIDEO_AD_RE.test(label) || PROMOTED_VIDEO_AD_SKIP_RE.test(label)
+  );
 }
 
 function isInPromotedTweetLabelRegion(
