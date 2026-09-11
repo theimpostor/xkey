@@ -81,6 +81,8 @@ let keyboardShortcutHelpAugmentationFrame = 0;
 let promotedTweetCollapsingFrame = 0;
 let promotedTweetNavigationFrame = 0;
 let promotedTweetCollapseStyle: HTMLStyleElement | null = null;
+let screenshotToast: HTMLDivElement | null = null;
+let screenshotToastTimeout = 0;
 
 document.addEventListener("keydown", handleKeydown, true);
 startKeyboardShortcutHelpAugmenter();
@@ -714,9 +716,13 @@ function handleKeydown(event: KeyboardEvent): void {
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    void copyVisibleTweetScreenshot(visibleTweetRect).catch(
-      reportShortcutError,
-    );
+    dismissScreenshotToast();
+    void copyVisibleTweetScreenshot(visibleTweetRect)
+      .then(() => showScreenshotToast("Screenshot copied to clipboard"))
+      .catch((error: unknown) => {
+        reportShortcutError(error);
+        showScreenshotToast("Couldn’t copy screenshot. Please try again.");
+      });
     return;
   }
 
@@ -871,6 +877,42 @@ async function copyVisibleTweetScreenshot(rect: Rect): Promise<void> {
       [imageBlob.type || "image/png"]: imageBlob,
     }),
   ]);
+}
+
+function dismissScreenshotToast(): void {
+  window.clearTimeout(screenshotToastTimeout);
+  screenshotToast?.remove();
+  screenshotToast = null;
+}
+
+function showScreenshotToast(message: string): void {
+  dismissScreenshotToast();
+  const toast = document.createElement("div");
+  toast.setAttribute("role", "status");
+  toast.setAttribute("aria-live", "polite");
+  toast.setAttribute("aria-atomic", "true");
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2147483647;
+    box-sizing: border-box;
+    max-width: calc(100vw - 32px);
+    padding: 12px 20px;
+    border: 1px solid #536471;
+    border-radius: 12px;
+    background: #0f1419;
+    color: #fff;
+    box-shadow: 0 4px 20px #0004;
+    font: 500 15px/1.4 system-ui, sans-serif;
+    text-align: center;
+    pointer-events: none;
+  `;
+  document.body.append(toast);
+  toast.textContent = message;
+  screenshotToast = toast;
+  screenshotToastTimeout = window.setTimeout(dismissScreenshotToast, 3_000);
 }
 
 function getVisibleTweetRect(tweet: Element): Rect | null {
