@@ -14,6 +14,7 @@ On `x.com`, use the built-in `j`/`k` keyboard navigation to select a tweet, then
 These shortcuts are also documented in the built-in `?` keyboard shortcuts menu on `x.com`.
 
 Promoted posts, including boosted posts, are also hidden behind a 'Show promoted post' button.
+The `j`/`k` shortcuts skip collapsed promoted posts; expanded posts remain selectable.
 
 ## Install
 

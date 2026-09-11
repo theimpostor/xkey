@@ -79,6 +79,7 @@ const PROMOTED_TWEET_EXPANDED_STATE = "expanded";
 
 let keyboardShortcutHelpAugmentationFrame = 0;
 let promotedTweetCollapsingFrame = 0;
+let promotedTweetNavigationFrame = 0;
 let promotedTweetCollapseStyle: HTMLStyleElement | null = null;
 
 document.addEventListener("keydown", handleKeydown, true);
@@ -670,6 +671,8 @@ function createShortcutKeySeparator(): Text {
 }
 
 function handleKeydown(event: KeyboardEvent): void {
+  scheduleCollapsedTweetSkipping(event);
+
   if (!isSupportedShortcut(event) || isEditableTarget(event.target)) {
     return;
   }
@@ -735,6 +738,66 @@ function handleKeydown(event: KeyboardEvent): void {
   }
 
   referencedTweetCard?.click();
+}
+
+function scheduleCollapsedTweetSkipping(event: KeyboardEvent): void {
+  // Synthetic navigation below must reach X without starting another skip loop.
+  if (!event.isTrusted) return;
+  window.cancelAnimationFrame(promotedTweetNavigationFrame);
+  if (
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    (event.key !== "j" && event.key !== "k") ||
+    isEditableTarget(event.target) ||
+    document.querySelector('[role="dialog"]')
+  ) {
+    return;
+  }
+
+  const visited = new Set<Element>();
+  const advance = (): void => {
+    promotedTweetNavigationFrame = 0;
+    const active = document.activeElement;
+    const tweet = active?.closest(TWEET_SELECTOR);
+    if (
+      !tweet ||
+      isEditableTarget(active) ||
+      document.querySelector('[role="dialog"]') ||
+      tweet.getAttribute(PROMOTED_TWEET_STATE_ATTRIBUTE) !==
+        PROMOTED_TWEET_COLLAPSED_STATE ||
+      visited.has(tweet) ||
+      visited.size >= 50
+    ) {
+      return;
+    }
+    visited.add(tweet);
+
+    // Let X update both its internal selection and focus, then inspect the result.
+    const init: KeyboardEventInit = {
+      key: event.key,
+      code: event.code,
+      keyCode: event.keyCode,
+      which: event.which,
+      bubbles: true,
+      cancelable: true,
+    };
+    active?.dispatchEvent(new KeyboardEvent("keydown", init));
+    if (document.activeElement === active) {
+      active?.dispatchEvent(
+        new KeyboardEvent("keypress", {
+          ...init,
+          charCode: event.key.charCodeAt(0),
+          keyCode: event.key.charCodeAt(0),
+          which: event.key.charCodeAt(0),
+        }),
+      );
+    }
+    document.activeElement?.dispatchEvent(new KeyboardEvent("keyup", init));
+    promotedTweetNavigationFrame = window.requestAnimationFrame(advance);
+  };
+  promotedTweetNavigationFrame = window.requestAnimationFrame(advance);
 }
 
 function isSupportedShortcut(event: KeyboardEvent): boolean {
