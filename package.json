@@ -10,14 +10,13 @@
     "cpd": "jscpd",
     "knip": "knip",
     "pack:zip": "bun run build.ts --zip",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun check --no-script"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.13",
-    "@types/bun": "^1.4.2",
-    "chrome-types": "^0.1.445",
-    "jscpd": "^5.2.0",
-    "knip": "^6.35.1",
-    "typescript": "^7.0.2"
+    "@biomejs/biome": "^2.6.4",
+    "@types/bun": "^1.4.4",
+    "chrome-types": "^0.1.461",
+    "jscpd": "^5.4.2",
+    "knip": "^6.44.1"
   }
 }
