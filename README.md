@@ -1,6 +1,6 @@
 # X Keyboard Extras
 
-Chrome extension for enhanced keyboard navigation on x.com (formerly Twitter). Adds keyboard shortcuts for expanding longer tweets hidden by `Show more`, opening sub-tweets, Grok, and screenshots.
+Browser extension for enhanced keyboard navigation on x.com (formerly Twitter). Adds keyboard shortcuts for expanding longer tweets hidden by `Show more`, opening sub-tweets, Grok, and screenshots. Runs in Chrome and can be installed locally in Safari on macOS using PortKit.
 
 ## Usage
 
@@ -18,7 +18,7 @@ The `j`/`k` shortcuts skip collapsed promoted posts; expanded posts remain selec
 
 ## Install
 
-### GitHub Release
+### Chrome: GitHub Release
 
 1. Open the latest release on GitHub.
 2. Download `xkey-<version>.zip` from the release assets.
@@ -28,12 +28,17 @@ The `j`/`k` shortcuts skip collapsed promoted posts; expanded posts remain selec
 6. Click **Load unpacked**.
 7. Select the unzipped extension folder.
 
-### Local Development
+### Chrome: Local Development
 
-1. Open `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Click **Load unpacked**.
-4. Select the generated `dist` folder.
+1. [Build the extension](#build).
+2. Open `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Click **Load unpacked**.
+5. Select the generated `dist` folder.
+
+### Safari
+
+Install a signed local copy using PortKit, Xcode, and a free Apple account. See the [Safari installation guide](docs/safari.md) for setup, updates, and troubleshooting.
 
 ## Build
 
